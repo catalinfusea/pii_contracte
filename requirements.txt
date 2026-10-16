@@ -1,0 +1,4 @@
+# Testat: Python 3.13 și 3.14 (Linux), 3.14 (Windows 11). Versiuni fixate = cele testate.
+pymupdf==1.28.2      # PDF: text cu coordonate + redactare reală (AGPL-3.0 / comercial)
+lxml==6.1.3          # DOCX: XML cu prefixe de namespace păstrate, parser fără XXE (BSD-3)
+pywin32==312 ; sys_platform == "win32"   # .doc -> .docx/.pdf prin Word (COM); doar Windows (PSF)

@@ -1,0 +1,151 @@
+"""Citire și redactare PDF cu PyMuPDF.
+
+Redactarea folosește adnotări de redactare aplicate (apply_redactions), care
+ȘTERG textul din conținutul paginii, nu doar îl acoperă. Copia e salvată
+complet (garbage=4), deci obiectele vechi nu rămân în fișier.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+import pymupdf
+
+MAX_PAGES = 2000
+MIN_CHARS_TEXT_PAGE = 50  # sub acest prag, o pagină cu imagini e probabil scanată
+
+
+class PdfError(Exception):
+    pass
+
+
+@dataclass
+class PageText:
+    page_no: int                       # 0-based
+    text: str
+    boxes: list[tuple | None] = field(default_factory=list)  # bbox per caracter; None = separator
+    line_ids: list[int] = field(default_factory=list)       # linia fiecărui caracter
+
+
+def open_pdf(path: str) -> pymupdf.Document:
+    try:
+        doc = pymupdf.open(path)
+    except Exception as e:  # noqa: BLE001 - PyMuPDF ridică mai multe tipuri
+        raise PdfError("Fișierul nu poate fi deschis ca PDF (corupt sau alt format).") from e
+    if doc.needs_pass:
+        doc.close()
+        raise PdfError("PDF protejat cu parolă - deschideți-l și salvați-l fără parolă.")
+    if doc.page_count > MAX_PAGES:
+        doc.close()
+        raise PdfError(f"PDF prea mare ({doc.page_count} pagini).")
+    return doc
+
+
+# Normalizare 1:1 (un caracter -> un caracter, offset-urile spre coordonate rămân valide).
+# Fonturi ca Arial mapează glifa cratimei și pe U+00AD: textul extras conține soft hyphen în loc de "-".
+CHAR_NORMALIZE = str.maketrans({
+    "\u00ad": "-",   # soft hyphen
+    "\u2010": "-",   # hyphen
+    "\u2011": "-",   # non-breaking hyphen
+    "\u00a0": " ",   # spațiu neseparabil
+    "\u202f": " ",   # spațiu îngust neseparabil
+})
+
+
+def normalize_text(text: str) -> str:
+    return text.translate(CHAR_NORMALIZE)
+
+
+def page_texts(doc: pymupdf.Document) -> tuple[list[PageText], list[str]]:
+    pages, warnings = [], []
+    scanned = []
+    for pno in range(doc.page_count):
+        page = doc[pno]
+        pt = PageText(pno, "")
+        chars: list[str] = []
+        line_no = 0
+        raw = page.get_text("rawdict", flags=pymupdf.TEXT_PRESERVE_WHITESPACE)
+        for block in raw["blocks"]:
+            if block.get("type") != 0:
+                continue
+            for line in block["lines"]:
+                for span in line["spans"]:
+                    for ch in span["chars"]:
+                        chars.append(normalize_text(ch["c"]))
+                        pt.boxes.append(tuple(ch["bbox"]))
+                        pt.line_ids.append(line_no)
+                # liniile din același bloc: separate prin spațiu (adresele trec pe rândul următor)
+                chars.append(" ")
+                pt.boxes.append(None)
+                pt.line_ids.append(line_no)
+                line_no += 1
+            chars.append("\n")
+            pt.boxes.append(None)
+            pt.line_ids.append(line_no)
+        pt.text = "".join(chars)
+        pages.append(pt)
+        if len(pt.text.strip()) < MIN_CHARS_TEXT_PAGE and page.get_images():
+            scanned.append(pno + 1)
+    if scanned:
+        warnings.append("Pagini fără text, cu imagini (probabil scanate): "
+                        f"{', '.join(map(str, scanned))}. NU sunt analizate (fără OCR deocamdată) - verificați manual.")
+    if doc.is_form_pdf:
+        warnings.append("PDF cu câmpuri de formular. Valorile din câmpuri NU sunt analizate - verificați manual.")
+    if any(doc[p].get_images() for p in range(doc.page_count)) and not scanned:
+        warnings.append("Conține imagini. Datele din imagini (ex. semnătură, buletin) NU sunt detectate.")
+    return pages, warnings
+
+
+def rects_for_span(pt: PageText, start: int, end: int) -> list[pymupdf.Rect]:
+    """Un dreptunghi per linie pentru caracterele [start, end)."""
+    by_line: dict[int, pymupdf.Rect] = {}
+    for i in range(start, min(end, len(pt.boxes))):
+        b = pt.boxes[i]
+        if b is None:
+            continue
+        r = pymupdf.Rect(b)
+        lid = pt.line_ids[i]
+        by_line[lid] = by_line[lid] | r if lid in by_line else r
+    return list(by_line.values())
+
+
+def redact(src_path: str, out_path: str, spans: list[tuple[int, int, int, str]],
+           redacted_values: set[str]) -> None:
+    """spans: (pagina 0-based, start, end, eticheta)."""
+    doc = open_pdf(src_path)
+    try:
+        pages, _ = page_texts(doc)
+        by_page: dict[int, list] = {}
+        for pno, s, e, label in spans:
+            by_page.setdefault(pno, []).append((s, e, label))
+        for pno, items in by_page.items():
+            page = doc[pno]
+            for s, e, label in items:
+                for r in rects_for_span(pages[pno], s, e):
+                    page.add_redact_annot(r, fill=(0, 0, 0))
+            # text: eliminat; imagini: pixelii acoperiți se înnegresc; grafică: neatinsă
+            page.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_PIXELS)
+        # linkuri care conțin valori redactate (mailto:, tel:)
+        for page in doc:
+            for link in page.get_links():
+                uri = (link.get("uri") or "").lower()
+                if uri and any(v.lower().replace(" ", "") in uri.replace("%20", "") for v in redacted_values):
+                    page.delete_link(link)
+        # metadate
+        doc.set_metadata({})
+        doc.del_xml_metadata()
+        doc.save(out_path, garbage=4, deflate=True, clean=True)
+    finally:
+        doc.close()
+
+
+def all_text(path: str) -> str:
+    """Tot textul + metadatele + linkurile - pentru verificarea post-redactare."""
+    doc = open_pdf(path)
+    try:
+        chunks = [str(doc.metadata), doc.get_xml_metadata() or ""]
+        for page in doc:
+            chunks.append(normalize_text(page.get_text()))
+            chunks.extend(link.get("uri") or "" for link in page.get_links())
+        return "\n".join(chunks)
+    finally:
+        doc.close()

@@ -1,0 +1,19 @@
+pii_contracte - redactarea datelor de identificare din contracte
+
+Pornire: dublu-click pe pii_contracte.exe.
+
+1. Adaugă fișierele (.docx, .doc, .pdf). Originalele NU se modifică.
+2. Apasă „Scanează”. Verifică tabelul: debifează ce NU trebuie redactat.
+   Rândurile gri (date indirecte: loc naștere, emitent, date ale actelor) sunt nebifate implicit.
+3. Alege folderul de ieșire și formatul, apoi „Generează copii redactate și raport”.
+4. Citește lista „Avertismente și erori”: ce e scris acolo trebuie verificat manual.
+
+Programul NU vede text din imagini sau din pagini scanate. Verifică întotdeauna copia redactată înainte
+să o trimiți.
+
+Fișierele .doc sunt convertite cu Microsoft Word; copia convertită (NEREDACTATĂ) rămâne în folderul
+„Conversie” de lângă original.
+
+Autotest: pii_contracte.exe --selftest (rezultatul apare într-o fereastră).
+Jurnal pentru depanare: %LOCALAPPDATA%\pii_contracte\pii_contracte.log (fără datele detectate;
+poate conține nume de fișiere).

@@ -1,0 +1,20 @@
+pii_contracte - licența programului și a componentelor terțe incluse în acest pachet
+
+pii_contracte este distribuit sub GNU AGPL-3.0 (fișierul LICENSE din codul sursă).
+
+Textele complete ale licențelor sunt în folderul "licente\" (copiate din pachetele instalate la build).
+
+- Python (interpretorul inclus)       PSF License
+- PyMuPDF / MuPDF (citire și redactare PDF)
+                                      GNU AGPL-3.0 (sau licență comercială Artifex)
+- lxml (citire DOCX)                  BSD-3-Clause; wheel-ul include zlib (zlib), iconv (LGPL-2.1),
+                                      libxml2/libxslt (MIT) - vezi licente\lxml\LICENSES.txt
+- pywin32 (automatizare Microsoft Word) PSF License
+- Tcl/Tk (interfața grafică)          licența Tcl/Tk (de tip BSD; text în folderul _tcl_data/_tk_data, dacă e inclus)
+- PyInstaller (lansatorul .exe)       GPLv2+ cu excepție care permite distribuirea programelor create
+
+IMPORTANT - PyMuPDF este sub AGPL-3.0:
+- uz intern (aceeași persoană / organizație): nicio obligație suplimentară;
+- dacă programul este dat unei terțe persoane, codul sursă complet al pii_contracte
+  (inclusiv modificările) trebuie pus la dispoziția acesteia, sub AGPL-3.0.
+Aceasta este o descriere informativă, nu consultanță juridică.

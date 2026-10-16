@@ -1,0 +1,31 @@
+# --- Python / medii
+__pycache__/
+*.py[cod]
+.venv/
+.venv-build/
+.pytest_cache/
+
+# --- build PyInstaller
+build/
+dist/
+
+# --- DATE PERSONALE: documente reale, copii redactate, conversii, rapoarte
+# Testele își generează documentele sintetic, în foldere temporare; repo-ul nu are nevoie de niciun document.
+*.doc
+*.docx
+*.pdf
+*.rtf
+*.odt
+*.csv
+*.xlsx
+*.zip
+redactat_*/
+Conversie/
+rezultat/
+
+# --- diverse
+*.log
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

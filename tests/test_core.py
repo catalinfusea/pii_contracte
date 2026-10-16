@@ -242,7 +242,7 @@ def test_report_masked(docx_file, pdf_file, tmp_path):
     for v in [fx.CNP_A, fx.IBAN_A, fx.EMAIL_A, fx.NAME_A, "Florilor"]:
         assert v not in content, v
     rows = list(csv.reader(content.splitlines(), delimiter=";"))
-    assert rows[0] == engine.REPORT_COLUMNS
+    assert rows[0] == engine.report_columns()
     assert len(rows) > 10
 
 

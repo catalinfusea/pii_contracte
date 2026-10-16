@@ -35,6 +35,7 @@ import queue
 import threading
 
 from pii_core import doc_convert, engine
+from pii_core.i18n import t
 from pii_core.models import FileResult
 
 log = logging.getLogger("pii_core")
@@ -62,12 +63,12 @@ def scan_job(paths: list[str], terms: list[str], doc_format: str, q: queue.Queue
                 break
             name = os.path.basename(path)
             ext = os.path.splitext(path)[1].lower()
-            q.put(("progress", i, n, name, "scanare"))
+            q.put(("progress", i, n, name, t("stage.scan")))
             if ext == ".doc":
                 if converter is None:
                     res = FileResult(file=path, source=path, error=conv_error)
                 else:
-                    q.put(("progress", i, n, name, "conversie Word"))
+                    q.put(("progress", i, n, name, t("stage.convert")))
                     try:
                         conv = converter.convert(path, doc_format)
                     except doc_convert.ConversionError as e:
@@ -75,8 +76,7 @@ def scan_job(paths: list[str], terms: list[str], doc_format: str, q: queue.Queue
                     else:
                         res = engine.scan_file(conv, terms)
                         res.source = path
-                        res.warnings[0:0] = [f"Convertit din .doc cu Word. Copia convertită (NEREDACTATĂ) "
-                                             f"e în folderul „{doc_convert.CONVERSION_DIR}” de lângă original."]
+                        res.warnings[0:0] = [t("job.converted_doc", dir=doc_convert.conversion_dir())]
                         res.warnings[1:1] = list(getattr(converter, "last_notes", []))
             else:
                 res = engine.scan_file(path, terms)
@@ -84,7 +84,7 @@ def scan_job(paths: list[str], terms: list[str], doc_format: str, q: queue.Queue
             q.put(("file", res))
     except Exception as e:  # noqa: BLE001 - nimic nu trebuie să blocheze interfața
         log.exception("Eroare la scanare")
-        q.put(("fatal", f"Eroare neașteptată la scanare: {type(e).__name__}"))
+        q.put(("fatal", t("job.scan_fatal", name=type(e).__name__)))
         return
     finally:
         if converter is not None:
@@ -94,7 +94,7 @@ def scan_job(paths: list[str], terms: list[str], doc_format: str, q: queue.Queue
 
 def default_out_dir(first_file: str, now: _dt.datetime | None = None) -> str:
     stamp = (now or _dt.datetime.now()).strftime("%Y-%m-%d_%H%M")
-    return os.path.join(os.path.dirname(os.path.abspath(first_file)), f"redactat_{stamp}")
+    return os.path.join(os.path.dirname(os.path.abspath(first_file)), t("file.out_dir_prefix") + stamp)
 
 
 OUTPUT_FORMATS = ("original", "pdf", "docx")
@@ -127,13 +127,13 @@ def redact_job(results: list[FileResult], out_dir: str, q: queue.Queue, cancel: 
             if cancel.is_set():
                 break
             name = res.display_name
-            q.put(("progress", i, n, name, "redactare"))
+            q.put(("progress", i, n, name, t("stage.redact")))
             try:
                 out, problems = engine.redact_file(res, out_dir, taken)
             except Exception as e:  # noqa: BLE001
                 log.exception("Eroare la redactare")
                 failed += 1
-                q.put(("file_error", name, f"Copia nu a putut fi generată ({type(e).__name__})."))
+                q.put(("file_error", name, t("job.redact_failed", name=type(e).__name__)))
                 continue
             done += 1
             file_problems = bool(problems)
@@ -141,33 +141,31 @@ def redact_job(results: list[FileResult], out_dir: str, q: queue.Queue, cancel: 
 
             ext = os.path.splitext(out)[1].lower()
             if out_format != "original" and ext != doc_convert.FORMATS[out_format][1]:
-                q.put(("progress", i, n, name, f"export {out_format.upper()} cu Word"))
+                q.put(("progress", i, n, name, t("stage.export", fmt=out_format.upper())))
                 if converter is None and conv_error is None:
                     try:
                         converter = converter_factory().__enter__()
                     except doc_convert.ConversionError as e:
                         conv_error = str(e)
                 if converter is None:
-                    q.put(("file_error", name, f"Export {out_format.upper()} imposibil: {conv_error} "
-                                               f"Copia redactată a rămas în formatul inițial."))
+                    q.put(("file_error", name, t("job.export_impossible", fmt=out_format.upper(), err=conv_error)))
                 else:
                     dst = _unique(os.path.splitext(out)[0] + doc_convert.FORMATS[out_format][1], taken)
                     try:
                         converter.export(out, out_format, dst)
                         exp_problems = engine.verify_file(dst, res)
                     except doc_convert.ConversionError as e:
-                        q.put(("file_error", name, f"Export {out_format.upper()} eșuat: {e} "
-                                                   f"Copia redactată a rămas în formatul inițial."))
+                        q.put(("file_error", name, t("job.export_failed", fmt=out_format.upper(), err=e)))
                     else:
                         file_problems = file_problems or bool(exp_problems)
                         q.put(("redacted", name, dst, exp_problems))
             with_problems += file_problems
         stamp = _dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        report = os.path.join(out_dir, f"raport_{stamp}.csv")
+        report = os.path.join(out_dir, f"{t('file.report_prefix')}{stamp}.csv")
         engine.write_report(results, report)
     except Exception as e:  # noqa: BLE001
         log.exception("Eroare la generare")
-        q.put(("fatal", f"Eroare la generare: {type(e).__name__}"))
+        q.put(("fatal", t("job.generate_fatal", name=type(e).__name__)))
         return
     finally:
         if converter is not None:

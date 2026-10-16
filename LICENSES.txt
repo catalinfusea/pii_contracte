@@ -1,3 +1,27 @@
+pii_contracte - licence of the program and of the third-party components in this package
+
+pii_contracte - Copyright (C) 2026 CatalinFusea - is distributed under the GNU AGPL-3.0-or-later
+(the LICENSE file). The program is provided WITHOUT ANY WARRANTY.
+
+The full licence texts are in the "licente\" folder (copied from the installed packages at build time).
+
+- Python (bundled interpreter)        PSF License
+- PyMuPDF / MuPDF (PDF reading and redaction)
+                                      GNU AGPL-3.0 (or Artifex commercial licence)
+- lxml (DOCX reading)                 BSD-3-Clause; the wheel bundles zlib (zlib), iconv (LGPL-2.1),
+                                      libxml2/libxslt (MIT) - see licente\lxml\LICENSES.txt
+- pywin32 (Microsoft Word automation) PSF License
+- Tcl/Tk (user interface)             Tcl/Tk licence (BSD-style; text in _tcl_data/_tk_data, if included)
+- PyInstaller (.exe launcher)         GPLv2+ with an exception that allows distributing the programs it builds
+
+IMPORTANT - PyMuPDF is licensed under the AGPL-3.0:
+- internal use (same person / organisation): no additional obligations;
+- if the program is given to a third party, the complete source code of pii_contracte
+  (including any changes) must be made available to them under the AGPL-3.0.
+This is an informal summary, not legal advice.
+
+==============================================================================
+
 pii_contracte - licența programului și a componentelor terțe incluse în acest pachet
 
 pii_contracte - Copyright (C) 2026 CatalinFusea - este distribuit sub GNU AGPL-3.0-or-later

@@ -1,14 +1,16 @@
 # Teste manuale pe Windows
 
+**Română** · [English](TESTING-WINDOWS.md)
+
 Testele automate (`python -m pytest -q -rs tests`) simulează Word și registry-ul. Comportamentul real al Word,
 al registry-ului și al `.exe`-ului se verifică manual, cu lista de mai jos. Folosiți **documente sintetice**.
 
-Stare: ✅ verificat · ⬜ de verificat · ultima actualizare: versiunea 0.3.0.
+Stare: ✅ verificat · ⬜ de verificat · ultima actualizare: versiunea 0.4.0.
 
 ## Aplicația (din sursă sau .exe)
 | # | Test | Așteptat | Stare |
 |---|---|---|---|
-| 1 | `python -m pytest -q -rs tests` | toate trec, 1 sărit (U+2011, Arial) | ✅ 0.2.6 |
+| 1 | `python -m pytest -q -rs tests` | toate trec, 2 sărite (U+2011 în Arial; test de locale Linux) | ⬜ 0.4.0 |
 | 2 | .docx + .pdf: scanare, generare | copii + raport; fără „VERIFICAREA A GĂSIT PROBLEME” | ✅ |
 | 3 | Copia DOCX redactată deschisă în Word | fără „conținut ilizibil / reparare” | ✅ se deschide (absența dialogului de reparare neconfirmată explicit) |
 | 4 | Copia PDF: selectați textul din zonele negre; Ctrl+F după un CNP | nimic selectabil / găsit | ⬜ |
@@ -39,3 +41,12 @@ Stare: ✅ verificat · ⬜ de verificat · ultima actualizare: versiunea 0.3.0.
 | B8 | După B4: verificările de registry de la #22 | „unable to find” la ambele | ⬜ |
 | B9 | Defender la copiere/rulare | fără carantină; altfel notați numele detecției | ⬜ |
 | B10 | Raportul CSV | date `**.**.****`, numere doar cu ultimele 2 caractere | ⬜ |
+
+## Limba interfeței (0.4.0)
+| # | Test | Așteptat | Stare |
+|---|---|---|---|
+| L1 | Prima pornire, Windows în română / în engleză | interfața în limba Windows | ⬜ |
+| L2 | „Limba / Language” → English, cu fișiere și termeni adăugați | fereastra se reface în engleză, fișierele și termenii rămân | ⬜ |
+| L3 | Închide și repornește | aceeași limbă ca la închidere | ⬜ |
+| L4 | În engleză: scanare + generare pe .docx și .pdf | `_REDACTED`, `[REDACTED:…]`, raport `report_…csv` cu antet în engleză | ⬜ |
+| L5 | `pii_contracte.exe --lang ro --selftest` / `--lang en --selftest` | fereastra autotestului în limba cerută, „TOTUL OK” / „ALL OK” | ⬜ |

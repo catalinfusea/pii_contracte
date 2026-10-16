@@ -1,6 +1,6 @@
 pii_contracte - redactarea datelor de identificare din contracte
 
-Pornire: dublu-click pe pii_contracte.exe.
+Pornire: dublu-click pe pii_contracte.exe. Limba interfeței: „Limba / Language” (dreapta sus).
 
 1. Adaugă fișierele (.docx, .doc, .pdf). Originalele NU se modifică.
 2. Apasă „Scanează”. Verifică tabelul: debifează ce NU trebuie redactat.

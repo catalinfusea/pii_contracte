@@ -22,3 +22,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for p in (ROOT, os.path.join(ROOT, "tests")):
     if p not in sys.path:
         sys.path.insert(0, p)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_lang():
+    """Fiecare test pornește în română și nu lasă altă limbă activă după el."""
+    from pii_core import i18n
+    i18n.set_lang("ro")
+    yield
+    i18n.set_lang("ro")

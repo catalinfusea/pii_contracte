@@ -103,3 +103,31 @@ def test_full_flow(app, tmp_path):
     assert "a_REDACTAT.docx" in names and "b_REDACTAT.pdf" in names
     assert any(n.startswith("raport_") for n in names)
     assert "VERIFICAREA A GĂSIT PROBLEME" not in app.warn.get("1.0", "end")
+
+
+def test_language_switch_keeps_files(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "lad"))
+    from pii_gui import app as appmod
+    fx.make_docx(str(tmp_path / "a.docx"))
+    app.add_paths([str(tmp_path / "a.docx")])
+    app.term_entry.insert(0, "1.000 lei")
+    app._add_term()
+    app.out_format.set("pdf")
+    root = app.master
+    app.lang_var.set("English")
+    app._change_lang()
+    root.update()
+    new = [w for w in root.winfo_children() if isinstance(w, appmod.App)]
+    assert len(new) == 1 and new[0] is not app
+    en = new[0]
+    assert root.title() == "Personal data redaction - contracts"
+    assert str(en.btn_scan.cget("text")) == "Scan"
+    assert en.files == app.files and en.terms == ["1.000 lei"] and en.out_format.get() == "pdf"
+    from pii_gui import runtime
+    assert runtime.load_settings()["lang"] == "en"
+    en._scan()
+    pump(en)
+    kinds = {en.tree.set(i, "kind") for i in en.tree.get_children()}
+    assert "Name" in kinds and "Nume" not in kinds
+    assert "tracked changes" in en.warn.get("1.0", "end")
+    assert en.status.get().startswith("Scan finished")

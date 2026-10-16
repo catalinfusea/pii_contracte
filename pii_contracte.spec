@@ -40,7 +40,8 @@ a = Analysis(
     ["pii_contracte_app.py"],
     pathex=[],
     binaries=[],
-    datas=[("LICENSE", "."), ("LICENSES.txt", "."), ("CITESTE-MA.txt", ".")] + license_files,
+    datas=[("LICENSE", "."), ("LICENSES.txt", "."), ("CITESTE-MA.txt", "."), ("README-USER.txt", ".")]
+    + license_files,
     hiddenimports=hidden,
     hookspath=[],
     runtime_hooks=[],

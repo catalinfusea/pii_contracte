@@ -23,8 +23,7 @@ from dataclasses import dataclass
 from pii_core.engine import norm_value
 from pii_core.models import FileResult, Finding
 
-LINK_NOTE = ("Link: dacă valoarea e bifată oriunde în document, linkul e eliminat "
-             "chiar dacă rândul acesta e debifat.")
+
 
 
 @dataclass(frozen=True)

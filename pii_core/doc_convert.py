@@ -49,9 +49,13 @@ import subprocess
 import sys
 import threading
 
+from .i18n import t
+
 log = logging.getLogger("pii_core")
 
-CONVERSION_DIR = "Conversie"
+def conversion_dir() -> str:
+    """Numele folderului cu conversiile .doc (neredactate), în limba activă: Conversie / Converted."""
+    return t("file.conversion_dir")
 FORMATS = {"docx": (12, ".docx"), "pdf": (17, ".pdf")}
 _WD_ALERTS_NONE = 0
 _MSO_AUTOSEC_FORCE_DISABLE = 3
@@ -278,8 +282,8 @@ def available() -> bool:
 def target_path(src: str, fmt: str) -> str:
     """<folderul originalului>\\Conversie\\<nume>.<docx|pdf>"""
     if fmt not in FORMATS:
-        raise ValueError(f"Format necunoscut: {fmt}")
-    folder = os.path.join(os.path.dirname(os.path.abspath(src)), CONVERSION_DIR)
+        raise ValueError(t("word.unknown_format", fmt=fmt))
+    folder = os.path.join(os.path.dirname(os.path.abspath(src)), conversion_dir())
     stem = os.path.splitext(os.path.basename(src))[0]
     return os.path.join(folder, stem + FORMATS[fmt][1])
 
@@ -308,7 +312,7 @@ class WordConverter:
             import pythoncom
             import win32com.client  # noqa: F401
         except ImportError as e:
-            raise ConversionError("Lipsește pywin32 - conversia .doc nu e disponibilă.") from e
+            raise ConversionError(t("word.no_pywin32")) from e
         pythoncom.CoInitialize()          # obligatoriu în orice thread care folosește COM
         self._com_init = True
         self._reg = self._registry().__enter__()
@@ -325,7 +329,7 @@ class WordConverter:
         try:
             word = win32com.client.DispatchEx("Word.Application")
         except Exception as e:  # noqa: BLE001 - com_error / altele
-            raise ConversionError("Microsoft Word nu poate fi pornit (nu e instalat sau e blocat).") from e
+            raise ConversionError(t("word.cannot_start")) from e
         new = self._list_pids() - before
         self._pid = next(iter(new)) if len(new) == 1 else None
         if self._pid is None:
@@ -337,19 +341,19 @@ class WordConverter:
             word.AutomationSecurity = _MSO_AUTOSEC_FORCE_DISABLE
         except Exception as e:  # noqa: BLE001
             self._quit()
-            raise ConversionError("Word nu a acceptat setările de siguranță; conversia e oprită.") from e
+            raise ConversionError(t("word.settings_refused")) from e
 
     def convert(self, src: str, fmt: str) -> str:
         """.doc original -> <folderul originalului>\\Conversie\\<nume>.<fmt> (copie NEREDACTATĂ)."""
         if os.path.splitext(src)[1].lower() != ".doc":
-            raise ConversionError("Se convertesc doar fișiere .doc.")
+            raise ConversionError(t("word.only_doc"))
         src = os.path.abspath(src)
         dst = target_path(src, fmt)
         try:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
         except OSError as e:
-            raise ConversionError(f"Nu pot crea folderul „{CONVERSION_DIR}” lângă original "
-                                  f"({type(e).__name__}).") from e
+            raise ConversionError(t("word.cannot_create_dir", dir=conversion_dir(),
+                                    err=type(e).__name__)) from e
         self._run(src, dst, fmt, inspect=True)
         log.info("Convertit .doc -> %s", fmt)
         return dst
@@ -358,14 +362,14 @@ class WordConverter:
         """Copie REDACTATĂ .docx -> .pdf sau .pdf -> .docx (PDF Reflow din Word 2013+)."""
         ext = os.path.splitext(src)[1].lower()
         if ext not in (".docx", ".pdf") or FORMATS[fmt][1] == ext:
-            raise ConversionError(f"Export nesuportat: {ext} -> {fmt}.")
+            raise ConversionError(t("word.export_unsupported", ext=ext, fmt=fmt))
         self._run(os.path.abspath(src), os.path.abspath(dst), fmt, inspect=False)
         log.info("Exportat %s -> %s", ext, fmt)
         return dst
 
     def _run(self, src: str, dst: str, fmt: str, inspect: bool) -> None:
         if not self._com_init:
-            raise ConversionError("Convertorul nu e pornit.")
+            raise ConversionError(t("word.not_started"))
         if self._word is None:            # instanța anterioară a fost oprită de watchdog
             self._start_word()
         killed = threading.Event()
@@ -384,37 +388,34 @@ class WordConverter:
         except ConversionError as e:
             if killed.is_set():
                 self._word, self._pid = None, None
-                raise ConversionError(f"Word nu a răspuns în {int(self._timeout)} s (probabil un dialog "
-                                      f"ascuns) și a fost oprit.") from e
+                raise ConversionError(t("word.timeout", s=int(self._timeout))) from e
             raise
         finally:
             timer.cancel()
 
     def _run_inner(self, src: str, dst: str, fmt: str, inspect: bool) -> None:
         if fmt not in FORMATS:
-            raise ConversionError(f"Format necunoscut: {fmt}")
+            raise ConversionError(t("word.unknown_format", fmt=fmt))
         if os.path.normcase(dst) == os.path.normcase(src):
-            raise ConversionError("Conversia ar suprascrie sursa.")
+            raise ConversionError(t("word.overwrite_source"))
         try:
             doc = self._word.Documents.Open(
                 FileName=src, ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False,
                 PasswordDocument=_DUMMY_PASSWORD, Visible=False, NoEncodingDialog=True)
         except Exception as e:  # noqa: BLE001
-            raise ConversionError("Word nu a putut deschide fișierul (corupt, protejat cu parolă "
-                                  "sau deschis în alt program).") from e
+            raise ConversionError(t("word.cannot_open")) from e
         self.last_notes = self._inspect(doc, fmt) if inspect else []
         try:
             doc.SaveAs2(FileName=dst, FileFormat=FORMATS[fmt][0], AddToRecentFiles=False)
         except Exception as e:  # noqa: BLE001
-            raise ConversionError("Word nu a putut salva conversia (folder fără drept de scriere "
-                                  "sau fișier destinație deschis).") from e
+            raise ConversionError(t("word.cannot_save")) from e
         finally:
             try:
                 doc.Close(SaveChanges=_WD_DO_NOT_SAVE)
             except Exception:  # noqa: BLE001
                 log.warning("Închiderea documentului în Word a eșuat")
         if not os.path.isfile(dst) or os.path.getsize(dst) == 0:
-            raise ConversionError("Word nu a produs fișierul convertit.")
+            raise ConversionError(t("word.no_output"))
 
     @staticmethod
     def _inspect(doc, fmt: str) -> list[str]:
@@ -423,11 +424,9 @@ class WordConverter:
         try:
             revs, comments = int(doc.Revisions.Count), int(doc.Comments.Count)
         except Exception:  # noqa: BLE001
-            return ["Nu am putut verifica dacă documentul .doc are modificări urmărite sau comentarii."]
+            return [t("word.cannot_inspect")]
         if fmt == "pdf" and (revs or comments):
-            notes.append(f"Documentul .doc are {revs} modificări urmărite și {comments} comentarii. În PDF-ul "
-                         "convertit pot apărea ca marcaje (inclusiv text șters) - verificați PDF-ul redactat "
-                         "sau alegeți conversia în DOCX.")
+            notes.append(t("word.revisions_pdf", revs=revs, comments=comments))
         return notes
 
     def _quit(self) -> None:

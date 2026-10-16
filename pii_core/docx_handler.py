@@ -32,6 +32,8 @@ from dataclasses import dataclass
 
 from lxml import etree
 
+from .i18n import t
+
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS = {"w": W}
 _w = lambda tag: f"{{{W}}}{tag}"  # noqa: E731
@@ -41,8 +43,7 @@ MAX_ENTRIES = 5000
 
 # părțile cu text vizibil
 _TEXT_PARTS = re.compile(r"^word/(document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$")
-_PART_LABEL = {"document": "corp", "header": "antet", "footer": "subsol",
-               "footnotes": "note de subsol", "endnotes": "note de final", "comments": "comentarii"}
+_PART_KEYS = {"document", "header", "footer", "footnotes", "endnotes", "comments"}
 
 
 def _parser() -> etree.XMLParser:
@@ -59,14 +60,14 @@ def _open_zip(path: str) -> zipfile.ZipFile:
     try:
         zf = zipfile.ZipFile(path)
     except zipfile.BadZipFile as e:
-        raise DocxError("Fișierul nu e un .docx valid (poate e protejat cu parolă sau corupt).") from e
+        raise DocxError(t("err.docx_invalid")) from e
     infos = zf.infolist()
     if len(infos) > MAX_ENTRIES or sum(i.file_size for i in infos) > MAX_UNCOMPRESSED:
         zf.close()
-        raise DocxError("Fișier .docx suspect (prea mare la dezarhivare).")
+        raise DocxError(t("err.docx_suspect"))
     if "word/document.xml" not in zf.namelist():
         zf.close()
-        raise DocxError("Fișierul nu conține word/document.xml.")
+        raise DocxError(t("err.docx_no_document"))
     return zf
 
 
@@ -94,7 +95,8 @@ class Paragraph:
     @property
     def label(self) -> str:
         base = re.sub(r"\d+$", "", self.part.split("/")[-1].removesuffix(".xml"))
-        return f"{_PART_LABEL.get(base, base)}, paragraful {self.index + 1}"
+        part = t("part." + base) if base in _PART_KEYS else base
+        return t("loc.paragraph", part=part, n=self.index + 1)
 
 
 def _paragraphs(part: str, root: etree._Element) -> list[Paragraph]:
@@ -146,10 +148,9 @@ def load(path: str) -> tuple[dict[str, etree._Element], dict[str, bytes], list[s
                 raw[name] = data
     n_img = sum(1 for n in raw if n.startswith("word/media/"))
     if n_img:
-        warnings.append(f"Conține {n_img} imagine(i). Datele din imagini (ex. buletin scanat lipit în "
-                        f"document) NU sunt detectate - verificați manual.")
+        warnings.append(t("warn.docx_images", n=n_img))
     if any(n.startswith("word/embeddings/") for n in raw):
-        warnings.append("Conține obiecte încorporate (ex. Excel). Nu sunt analizate - verificați manual.")
+        warnings.append(t("warn.docx_embedded"))
     return xml_parts, raw, warnings
 
 

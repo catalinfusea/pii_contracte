@@ -34,7 +34,7 @@ def test_selftest_reports_broken_detection(tmp_path, monkeypatch):
                                                           if d is not detectors.find_cnp))
     ok, lines = runtime.selftest(with_word=False, with_tk=False)
     assert not ok
-    assert sum(line.startswith("[EROARE]") for line in lines) == 2     # PDF și DOCX
+    assert sum(line.startswith("[EROARE]") for line in lines) == 2  # noqa: E501     # PDF și DOCX
 
 
 def test_log_file_in_localappdata(tmp_path, monkeypatch):

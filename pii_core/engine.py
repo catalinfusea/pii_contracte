@@ -29,6 +29,7 @@ import re
 from . import docx_handler as dx
 from . import pdf_handler as pd
 from .detectors import detect, find_literal
+from .i18n import conf_label, kind_label, t
 from .models import DEFAULT_UNSELECTED_KINDS, Confidence, FileResult, Finding, Match
 
 log = logging.getLogger("pii_core")
@@ -82,33 +83,32 @@ def _units(path: str, ext: str):
     if ext == ".docx":
         xml_parts, raw, warnings = dx.load(path)
         if dx.has_tracked_changes(xml_parts):
-            warnings.append("Conține modificări urmărite (track changes). În copia redactată sunt "
-                            "acceptate automat, iar textul șters dispare.")
+            warnings.append(t("warn.track_changes"))
         if "word/comments.xml" in xml_parts:
-            warnings.append("Conține comentarii. În copia redactată sunt eliminate.")
+            warnings.append(t("warn.comments"))
         units = [(p.text, p.label, {"part": p.part, "par": p.index})
                  for p in dx.iter_paragraphs(xml_parts)]
         # linkuri externe: mailto:/tel: pot conține date de contact
         for rels, target in dx.hyperlink_targets(raw):
-            units.append((target, "hyperlink", {"rels": rels}))
+            units.append((target, t("loc.hyperlink"), {"rels": rels}))
         return units, warnings
     doc = pd.open_pdf(path)
     try:
         pages, warnings = pd.page_texts(doc)
     finally:
         doc.close()
-    return [(p.text, f"pagina {p.page_no + 1}", {"page": p.page_no}) for p in pages], warnings
+    return [(p.text, t("loc.page", n=p.page_no + 1), {"page": p.page_no}) for p in pages], warnings
 
 
 def scan_file(path: str, manual_terms: list[str] | None = None) -> FileResult:
     res = FileResult(file=path)
     ext = os.path.splitext(path)[1].lower()
     if ext not in SUPPORTED:
-        res.error = f"Format nesuportat: {ext or '(fără extensie)'}"
+        res.error = t("err.unsupported", ext=ext or t("err.no_ext"))
         return res
     try:
         if os.path.getsize(path) > MAX_FILE_BYTES:
-            res.error = "Fișier prea mare (peste 100 MB)."
+            res.error = t("err.too_big")
             return res
         units, res.warnings = _units(path, ext)
     except (dx.DocxError, pd.PdfError) as e:
@@ -116,7 +116,7 @@ def scan_file(path: str, manual_terms: list[str] | None = None) -> FileResult:
         return res
     except Exception as e:  # noqa: BLE001
         log.exception("Eroare neașteptată la citire (%s)", ext)
-        res.error = f"Eroare neașteptată la citire: {type(e).__name__}"
+        res.error = t("err.unexpected_read", name=type(e).__name__)
         return res
 
     per_unit: list[list[Match]] = [detect(t) for t, _, _ in units]
@@ -130,8 +130,8 @@ def scan_file(path: str, manual_terms: list[str] | None = None) -> FileResult:
     extra = [(t.strip(), "Manual") for t in (manual_terms or []) if t.strip()]
     for i, (text, _, _) in enumerate(units):
         occupied = [(m.start, m.end) for m in per_unit[i]]
-        candidates = [(v, k, Confidence.MEDIE, "aceeași valoare apare și în altă parte") for v, k in known.items()]
-        candidates += [(v, k, Confidence.MARE, "adăugat manual") for v, k in extra]
+        candidates = [(v, k, Confidence.MEDIE, t("note.propagated")) for v, k in known.items()]
+        candidates += [(v, k, Confidence.MARE, t("note.manual")) for v, k in extra]
         for value, kind, conf, note in candidates:
             for m in find_literal(text, value, kind, conf, note):
                 if all(m.end <= s or m.start >= e for s, e in occupied):
@@ -158,13 +158,14 @@ def scan_file(path: str, manual_terms: list[str] | None = None) -> FileResult:
 def output_path(src: str, out_dir: str, taken: set[str] | None = None) -> str:
     """`taken`: căi deja folosite în aceeași rulare (fișiere cu același nume din foldere diferite)."""
     base, ext = os.path.splitext(os.path.basename(src))
-    out = os.path.join(out_dir, f"{base}_REDACTAT{ext}")
+    suffix = t("file.redacted_suffix")
+    out = os.path.join(out_dir, f"{base}{suffix}{ext}")
     n = 2
     while taken is not None and os.path.normcase(os.path.abspath(out)) in taken:
-        out = os.path.join(out_dir, f"{base}_REDACTAT_{n}{ext}")
+        out = os.path.join(out_dir, f"{base}{suffix}_{n}{ext}")
         n += 1
     if os.path.normcase(os.path.abspath(out)) == os.path.normcase(os.path.abspath(src)):
-        raise ValueError("Ieșirea ar suprascrie originalul.")
+        raise ValueError(t("err.overwrite_original"))
     if taken is not None:
         taken.add(os.path.normcase(os.path.abspath(out)))
     return out
@@ -201,7 +202,7 @@ def redact_file(res: FileResult, out_dir: str, taken: set[str] | None = None) ->
         for key, fs in by_par.items():
             for f in sorted(fs, key=lambda x: x._locator["start"], reverse=True):
                 dx.replace_span(pars[key], f._locator["start"], f._locator["end"],
-                                f"[REDACTAT:{f.kind.upper()}]")
+                                t("redact.placeholder", kind=kind_label(f.kind).upper()))
         # linkurile care conțin valori redactate în text sunt și ele neutralizate
         dx.save(out, xml_parts, raw, res.file, values)
         check_text = dx.all_text(out)
@@ -223,7 +224,7 @@ def verify_file(path: str, res: FileResult) -> list[str]:
     elif ext == ".pdf":
         text = pd.all_text(path)
     else:
-        return [f"Format necunoscut pentru verificare: {ext}"]
+        return [t("verify.unknown_format", ext=ext)]
     return verify(text, [f for f in res.findings if f.selected], mixed_values(res))
 
 
@@ -241,26 +242,27 @@ def verify(text: str, selected: list[Finding], kept: set[str] | None = None) -> 
             continue
         seen.add(key)
         if find_literal(text, f.value, f.kind, f.confidence, ""):
-            problems.append(f"{f.kind} {mask(f.value, f.kind)} apare încă în copia redactată")
+            problems.append(t("verify.still_present", kind=kind_label(f.kind), masked=mask(f.value, f.kind)))
     return problems
 
 
 # ------------------------------------------------------------------ raport
-REPORT_COLUMNS = ["Fișier", "Tip", "Valoare (mascată)", "Încredere", "Localizare", "Notă", "Redactat"]
+def report_columns() -> list[str]:
+    return t("report.columns").split(";")
 
 
 def write_report(results: list[FileResult], path: str) -> None:
     """CSV cu ';' și BOM UTF-8, ca să se deschidă corect în Excel cu setări românești."""
     with open(path, "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh, delimiter=";")
-        w.writerow(REPORT_COLUMNS)
+        w.writerow(report_columns())
         for r in results:
             name = r.display_name
             if r.error:
-                w.writerow([name, "EROARE", "", "", "", r.error, ""])
+                w.writerow([name, t("report.error"), "", "", "", r.error, ""])
                 continue
             for msg in r.warnings:
-                w.writerow([name, "AVERTISMENT", "", "", "", msg, ""])
+                w.writerow([name, t("report.warning"), "", "", "", msg, ""])
             for f in r.findings:
-                w.writerow([name, f.kind, mask(f.value, f.kind), f.confidence.value, f.location,
-                            f.note, "da" if f.selected else "nu"])
+                w.writerow([name, kind_label(f.kind), mask(f.value, f.kind), conf_label(f.confidence.value),
+                            f.location, f.note, t("report.yes") if f.selected else t("report.no")])

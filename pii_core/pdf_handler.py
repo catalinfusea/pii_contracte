@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 
 import pymupdf
 
+from .i18n import t
+
 MAX_PAGES = 2000
 MIN_CHARS_TEXT_PAGE = 50  # sub acest prag, o pagină cu imagini e probabil scanată
 
@@ -47,13 +49,13 @@ def open_pdf(path: str) -> pymupdf.Document:
     try:
         doc = pymupdf.open(path)
     except Exception as e:  # noqa: BLE001 - PyMuPDF ridică mai multe tipuri
-        raise PdfError("Fișierul nu poate fi deschis ca PDF (corupt sau alt format).") from e
+        raise PdfError(t("err.pdf_open")) from e
     if doc.needs_pass:
         doc.close()
-        raise PdfError("PDF protejat cu parolă - deschideți-l și salvați-l fără parolă.")
+        raise PdfError(t("err.pdf_password"))
     if doc.page_count > MAX_PAGES:
         doc.close()
-        raise PdfError(f"PDF prea mare ({doc.page_count} pagini).")
+        raise PdfError(t("err.pdf_too_many_pages", n=doc.page_count))
     return doc
 
 
@@ -103,12 +105,11 @@ def page_texts(doc: pymupdf.Document) -> tuple[list[PageText], list[str]]:
         if len(pt.text.strip()) < MIN_CHARS_TEXT_PAGE and page.get_images():
             scanned.append(pno + 1)
     if scanned:
-        warnings.append("Pagini fără text, cu imagini (probabil scanate): "
-                        f"{', '.join(map(str, scanned))}. NU sunt analizate (fără OCR deocamdată) - verificați manual.")
+        warnings.append(t("warn.pdf_scanned", pages=", ".join(map(str, scanned))))
     if doc.is_form_pdf:
-        warnings.append("PDF cu câmpuri de formular. Valorile din câmpuri NU sunt analizate - verificați manual.")
+        warnings.append(t("warn.pdf_forms"))
     if any(doc[p].get_images() for p in range(doc.page_count)) and not scanned:
-        warnings.append("Conține imagini. Datele din imagini (ex. semnătură, buletin) NU sunt detectate.")
+        warnings.append(t("warn.pdf_images"))
     return pages, warnings
 
 

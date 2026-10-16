@@ -26,6 +26,7 @@ import re
 from datetime import date
 
 from .models import Confidence, Match
+from .i18n import t
 
 # --- litere românești (ambele variante: virgulă și sedilă) ---
 UP = "A-ZĂÂÎȘȚŞŢ"
@@ -71,10 +72,10 @@ def find_cnp(text: str) -> list[Match]:
                 out.append(Match("CNP", cnp, m.start(), m.end(), Confidence.MARE))
             else:
                 out.append(Match("CNP", cnp, m.start(), m.end(), Confidence.MEDIE,
-                                 f"cod județ {cnp[7:9]} necunoscut"))
+                                 t("note.cnp_county", code=cnp[7:9])))
         elif anchored:
             out.append(Match("CNP", cnp, m.start(), m.end(), Confidence.MICA,
-                             "cifra de control sau data nu se validează"))
+                             t("note.cnp_invalid")))
     return out
 
 
@@ -126,7 +127,7 @@ def find_iban(text: str) -> list[Match]:
                 c = val[:e]
                 if _compact(c).startswith("RO") and len(_compact(c)) == 24 and _IBAN_ANCHOR_RE.search(before):
                     out.append(Match("IBAN", c, m.start(1), m.start(1) + len(c), Confidence.MICA,
-                                     "cifra de control nu se validează"))
+                                     t("note.iban_invalid")))
                     break
     return out
 
@@ -262,7 +263,7 @@ def _address_after(text: str, anchor_re: re.Pattern, kind: str, min_len: int = 8
         val = cut.rstrip(" ,.")
         if len(val) >= min_len:
             out.append(Match(kind, val, s, s + len(val), Confidence.MEDIE,
-                             "" if certain else "sfârșitul e incert - verificați"))
+                             "" if certain else t("note.uncertain_end")))
     return out
 
 
@@ -321,14 +322,14 @@ _ACT_DATE_RE = re.compile(
 def find_indirect(text: str) -> list[Match]:
     out = _address_after(text, _POB_RE, "Loc naștere", min_len=3)
     for m in out:
-        m.note = (m.note + "; " if m.note else "") + "dată indirectă"
+        m.note = (m.note + "; " if m.note else "") + t("note.indirect")
     for m in _ISSUER_RE.finditer(text):
         out.append(Match("Emitent act", m.group(1), m.start(1), m.end(1), Confidence.MEDIE,
-                         "dată indirectă"))
+                         t("note.indirect")))
     for m in _ACT_DATE_RE.finditer(text):
         g = 1 if m.group(1) else 2
         out.append(Match("Dată act", m.group(g), m.start(g), m.end(g), Confidence.MEDIE,
-                         "dată indirectă"))
+                         t("note.indirect")))
     return out
 
 

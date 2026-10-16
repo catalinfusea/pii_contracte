@@ -1,3 +1,5 @@
+# Copyright (C) 2026 CatalinFusea - parte din pii_contracte
+# SPDX-License-Identifier: AGPL-3.0-or-later
 <#
 Build pii_contracte.exe (onedir) pe Windows. Testat: NU (scris pe Linux; spec-ul validat cu build pe Linux).
 Cerințe: Python 3.14 (py launcher), Word instalat doar pentru autotestul complet.

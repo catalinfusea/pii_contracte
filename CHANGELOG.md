@@ -1,5 +1,10 @@
 # Istoric versiuni
 
+## 0.3.2 — pregătire pentru publicare
+- Notă de copyright și de licență (AGPL-3.0-or-later, textul recomandat de FSF) în fiecare fișier sursă.
+- README: avertisment explicit că redactarea nu e garantată și trebuie verificată de un om; secțiune de raportare.
+- `SECURITY.md`: cum se raportează o scăpare de redactare fără a expune date reale.
+
 ## 0.3.1 — repository
 - README restructurat, CHANGELOG, docs/TESTARE-WINDOWS.md, LICENSE (AGPL-3.0), .gitignore care blochează documentele.
 - pytest fixat la 9.1.1; LICENSE inclus în pachetul .exe.

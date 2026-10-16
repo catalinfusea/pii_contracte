@@ -1,6 +1,7 @@
 pii_contracte - licența programului și a componentelor terțe incluse în acest pachet
 
-pii_contracte este distribuit sub GNU AGPL-3.0 (fișierul LICENSE din codul sursă).
+pii_contracte - Copyright (C) 2026 CatalinFusea - este distribuit sub GNU AGPL-3.0-or-later
+(fișierul LICENSE). Programul este oferit FĂRĂ NICIO GARANȚIE.
 
 Textele complete ale licențelor sunt în folderul "licente\" (copiate din pachetele instalate la build).
 

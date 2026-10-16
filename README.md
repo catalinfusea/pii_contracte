@@ -6,7 +6,12 @@ Aplicație Windows care **detectează și redactează datele de identificare** d
 Flux: alegi fișierele → **Scanează** → verifici constatările într-un tabel cu bife → **Generează** copii redactate
 (`<nume>_REDACTAT.<ext>`) și un raport CSV cu valori mascate. Originalele nu sunt modificate.
 
-> Stare: versiunea 0.3.1, folosită intern. Testată pe Windows 11 cu Python 3.14 și Microsoft Word 16.0.
+> ⚠️ **Fără garanție.** Redactarea automată **nu este garantată completă**: programul poate rata date (nume fără
+> ancoră, text în imagini, formulări neprevăzute) sau poate marca greșit text obișnuit. Fiecare copie redactată trebuie
+> **verificată de un om** înainte de a fi transmisă. Cine folosește programul rămâne responsabil pentru prelucrarea
+> datelor personale (operator / persoană împuternicită în sensul GDPR). Vezi și secțiunile 15–16 din [LICENSE](LICENSE).
+
+> Stare: versiunea 0.3.2, folosită intern. Testată pe Windows 11 cu Python 3.14 și Microsoft Word 16.0.
 > Paginile scanate (imagini) **nu** sunt analizate încă (OCR = etapa 4). Istoric: [CHANGELOG.md](CHANGELOG.md).
 
 ## Ce detectează
@@ -116,7 +121,13 @@ demo_cli.py, diag_iban.py   utilitare de linie de comandă (afișează valori co
 - Fișierele din `Conversie\` sunt copii complete, neredactate.
 - `.exe`-ul nu e semnat digital: SmartScreen cere confirmare la prima rulare.
 
+## Raportarea problemelor
+O valoare care rămâne nedetectată sau o eroare de redactare: vezi [SECURITY.md](SECURITY.md).
+**Nu atașați niciodată documente reale** la issue-uri; reproduceți problema cu date inventate.
+
 ## Licență
-[GNU AGPL-3.0](LICENSE) — impusă de PyMuPDF (AGPL-3.0). Uz intern: fără obligații suplimentare. Dacă programul
+Copyright (C) 2026 CatalinFusea.
+
+[GNU AGPL-3.0-or-later](LICENSE) — aleasă din cauza PyMuPDF (AGPL-3.0). Uz intern: fără obligații suplimentare. Dacă programul
 (sau `.exe`-ul) e dat altcuiva, codul sursă complet trebuie pus la dispoziția acelei persoane, sub AGPL-3.0.
 Licențele componentelor terțe: [LICENSES.txt](LICENSES.txt).
